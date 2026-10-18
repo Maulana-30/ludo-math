@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ludo Math Multiplayer (Relasi & Fungsi)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #0f172a;
+        }
+        /* Modal Style Utama */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .modal.active {
+            display: flex !important;
+        }
+        .dice-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            transition: all 0.2s ease;
+        }
+        .dice-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        .dice-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        @keyframes roll {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(10deg); }
+            50% { transform: rotate(-10deg); }
+            75% { transform: rotate(5deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .rolling {
+            animation: roll 0.4s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100 flex flex-col items-center justify-center p-4">
+
+    <!-- Container Utama Game -->
+    <div class="flex flex-col lg:flex-row gap-8 items-center justify-center max-w-7xl w-full">
+        
+        <!-- Papan Canvas Ludo -->
+        <div class="bg-slate-900 p-4 rounded-3xl shadow-2xl border border-slate-800 flex items-center justify-center">
+            <canvas id="ludoCanvas" width="1000" height="1000" class="w-[750px] h-[750px] md:w-[850px] md:h-[850px] object-contain rounded-2xl"></canvas>
+        </div>
+
+        <!-- Panel Kontrol & Informasi Samping -->
+        <div class="flex flex-col gap-6 w-full max-w-sm">
+            
+            <!-- Box Giliran Pemain -->
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col items-center text-center">
+                <span class="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-2">Giliran Saat Ini</span>
+                <div class="flex items-center gap-3 mb-2">
+                    <div id="turn-color-box" class="w-8 h-8 rounded-full shadow-md flex items-center justify-center font-bold text-white bg-blue-600">B</div>
+                    <h2 id="turn-name" class="text-2xl font-black text-blue-500">Biru</h2>
+                </div>
+                
+                <!-- Dadu & Tombol Kocok -->
+                <div class="my-4 flex items-center justify-center gap-6">
+                    <div id="dice" class="text-5xl select-none text-blue-500 drop-shadow">⚀</div>
+                    <button id="roll-btn" onclick="rollDice()" class="dice-btn text-white font-bold px-6 py-3 rounded-2xl shadow-lg cursor-pointer">
+                        KOCOK DADU
+                    </button>
+                </div>
+                <p id="action-hint" class="text-sm font-medium text-slate-400 mt-2">Kocok dadu sekarang!</p>
+            </div>
+
+            <!-- Legenda Petak Spesial -->
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl text-xs space-y-3">
+                <h4 class="font-bold text-slate-300 text-sm mb-1 uppercase tracking-wider">Keterangan Petak</h4>
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-lg bg-pink-500 flex items-center justify-center text-white font-bold shadow">★</span>
+                    <span class="text-slate-300"><strong>Petak Bintang:</strong> Muncul Kuis Random</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-lg bg-amber-500 flex items-center justify-center text-white font-bold shadow">?</span>
+                    <span class="text-slate-300"><strong>Petak Quest:</strong> Muncul Kuis Home Stretch</span>
+                </div>
+                <div class="border-t border-slate-800 pt-2 text-slate-400 font-semibold">
+                    Benar: <span class="text-emerald-400">+3 Langkah</span> | Salah: <span class="text-rose-400">-3 Langkah</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL KUIS PILIHAN GANDA (DIJAMIN MUNCUL & BISA DIKLIK) -->
+    <div id="quiz-modal" class="modal">
+        <div class="bg-slate-900 border-2 border-amber-500/50 p-6 rounded-3xl max-w-lg w-full text-white shadow-2xl mx-4">
+            <div class="flex items-center gap-4 mb-4 border-b border-slate-800 pb-3">
+                <div id="quiz-icon" class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-lg border-2 border-white/30 text-white bg-amber-500">?</div>
+                <div>
+                    <h3 class="text-lg font-bold text-amber-400">Tantangan Matematika (Relasi & Fungsi)</h3>
+                    <p class="text-xs text-slate-400">Benar: <strong class="text-emerald-400">+3 Langkah</strong> | Salah: <strong class="text-rose-400">-3 Langkah</strong></p>
+                </div>
+            </div>
+            <p id="quiz-q" class="text-base font-semibold mb-5 text-slate-100 leading-relaxed">Memuat pertanyaan...</p>
+            <!-- Wadah Tombol Pilihan Jawaban -->
+            <div id="quiz-opts" class="space-y-3">
+                <!-- Tombol pilihan ganda digenerate otomatis oleh script.js dengan event klik -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Papan Peringkat Akhir (Game Over) -->
+    <div id="victory-modal" class="modal">
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-3xl max-w-md w-full text-white shadow-2xl mx-4 text-center">
+            <div id="win-content"></div>
+        </div>
+    </div>
+
+    <!-- Modal Sesi / Resume Game -->
+    <div id="session-modal" class="modal">
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-3xl max-w-sm w-full text-white shadow-2xl mx-4 text-center">
+            <h3 class="text-xl font-bold mb-3 text-amber-400">Sesi Sebelumnya Ditemukan</h3>
+            <p class="text-sm text-slate-300 mb-6">Apakah Anda ingin melanjutkan permainan sebelumnya atau mulai dari awal?</p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="handleSessionChoice('resume')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl font-bold transition w-full cursor-pointer">Lanjutkan</button>
+                <button onclick="handleSessionChoice('restart')" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-xl font-bold transition w-full cursor-pointer">Mulai Baru</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.io Client Script -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/script.js"></script>
+</body>
+</html>
